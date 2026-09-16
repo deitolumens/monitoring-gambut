@@ -6,40 +6,60 @@ import { NodeSelector } from "./node-selector";
 import { VerticalProfile } from "./vertical-profile";
 import { TrendChart } from "./trend-chart";
 import { DataTable } from "./data-table";
-import {
-  NODES,
-  getCurrentReadings,
-  getTimeSeriesData,
-  getHistoricalData,
-} from "@/lib/mock-data";
+import { ChartRange, useSoilData } from "@/hooks/use-soil-data";
+import { exportToCsv, formatTimestamp, getMoistureColor } from "@/lib/mock-data";
 import type { NodeId } from "@/lib/types";
 
 export function Dashboard() {
   const [selectedNodeId, setSelectedNodeId] = useState<NodeId>("A");
+  const [chartRange, setChartRange] = useState<ChartRange>(24);
+
+  const {
+    nodes,
+    currentReadings,
+    timeSeriesData,
+    historicalData,
+    loading,
+    error,
+    refetch,
+  } = useSoilData(selectedNodeId, chartRange);
 
   const node = useMemo(
-    () => NODES.find((n) => n.id === selectedNodeId) ?? NODES[0],
-    [selectedNodeId]
+    () => nodes.find((n) => n.id === selectedNodeId) ?? nodes[0] ?? null,
+    [nodes, selectedNodeId]
   );
 
-  const currentReadings = useMemo(
-    () => getCurrentReadings(selectedNodeId),
-    [selectedNodeId]
-  );
+  if (loading && nodes.length === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-lg font-medium">Loading dashboard...</p>
+          <p className="text-sm text-muted-foreground mt-2">
+            Connecting to MQTT &amp; database
+          </p>
+        </div>
+      </div>
+    );
+  }
 
-  const timeSeriesData = useMemo(
-    () => getTimeSeriesData(selectedNodeId),
-    [selectedNodeId]
-  );
-
-  const historicalData = useMemo(
-    () => getHistoricalData(selectedNodeId),
-    [selectedNodeId]
-  );
+  if (!node) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-lg font-medium">No node data available</p>
+          <button
+            onClick={refetch}
+            className="mt-2 text-sm underline text-primary"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Top Bar */}
       <header className="sticky top-0 z-30 border-b bg-card/80 backdrop-blur-sm">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
@@ -57,33 +77,41 @@ export function Dashboard() {
               </p>
             </div>
           </div>
+          {error && (
+            <div className="flex items-center gap-2 text-destructive text-xs">
+              <span>{error}</span>
+              <button onClick={refetch} className="underline">
+                Retry
+              </button>
+            </div>
+          )}
           <NodeSelector
-            nodes={NODES}
+            nodes={nodes}
             selectedNodeId={selectedNodeId}
             onSelect={setSelectedNodeId}
           />
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-        {/* Status Header */}
         <StatusHeader node={node} />
 
-        {/* Profile + Stats row */}
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
             <VerticalProfile readings={currentReadings} />
           </div>
 
-          {/* Summary stats */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-1">
             <StatCard
               label="Average Moisture"
-              value={`${(
-                currentReadings.reduce((sum, r) => sum + r.moisture, 0) /
-                currentReadings.length
-              ).toFixed(1)}%`}
+              value={
+                currentReadings.length > 0
+                  ? `${(
+                      currentReadings.reduce((sum, r) => sum + r.moisture, 0) /
+                      currentReadings.length
+                    ).toFixed(1)}%`
+                  : "—"
+              }
               description="Across all depths"
               color="hsl(var(--primary))"
             />
@@ -108,19 +136,24 @@ export function Dashboard() {
           </div>
         </div>
 
-        {/* Trend Chart */}
-        <TrendChart data={timeSeriesData} />
+        <TrendChart
+          data={timeSeriesData}
+          chartRange={chartRange}
+          onChartRangeChange={setChartRange}
+        />
 
-        {/* Historical Data Table */}
-        <DataTable data={historicalData} nodeId={selectedNodeId} />
+        <DataTable
+          data={historicalData}
+          nodeId={selectedNodeId}
+          exportToCsv={exportToCsv}
+          formatTimestamp={formatTimestamp}
+          getMoistureColor={getMoistureColor}
+        />
 
-        {/* Footer */}
         <footer className="border-t pt-6 text-center text-xs text-muted-foreground">
-          <p>
-            Peatland Soil Moisture Monitoring System — Academic Thesis Project
-          </p>
+          <p>Peatland Soil Moisture Monitoring System — Academic Thesis Project</p>
           <p className="mt-1">
-            Data transmission via MQTT · Storage: Turso DB · Sensors: Capacitive (3 depths)
+            Data via MQTT · Storage: Supabase · Sensors: Capacitive (3 depths)
           </p>
         </footer>
       </main>

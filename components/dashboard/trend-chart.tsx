@@ -12,9 +12,13 @@ import {
 } from "recharts";
 import { TrendingUp } from "lucide-react";
 import type { TimeSeriesPoint } from "@/lib/types";
+import { Button } from "@/components/ui/button";
+import type { ChartRange } from "@/hooks/use-soil-data";
 
 interface TrendChartProps {
   data: TimeSeriesPoint[];
+  chartRange: ChartRange;
+  onChartRangeChange: (range: ChartRange) => void;
 }
 
 const CHART_COLORS = {
@@ -23,15 +27,31 @@ const CHART_COLORS = {
   depth150: "hsl(var(--chart-3))",
 };
 
-export function TrendChart({ data }: TrendChartProps) {
+const CHART_RANGES: ChartRange[] = [1, 4, 12, 24];
+
+export function TrendChart({ data, chartRange, onChartRangeChange }: TrendChartProps) {
   return (
     <div className="rounded-lg border bg-card p-6 shadow-sm">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <TrendingUp className="h-5 w-5 text-primary" />
           <h3 className="text-lg font-semibold tracking-tight">Moisture Trend Analytics</h3>
         </div>
-        <span className="text-xs text-muted-foreground">Last 24 hours</span>
+        <div className="flex items-center gap-1 rounded-md border bg-muted/40 p-1" aria-label="Chart time range">
+          {CHART_RANGES.map((range) => (
+            <Button
+              key={range}
+              type="button"
+              size="sm"
+              variant={chartRange === range ? "default" : "ghost"}
+              className="h-7 px-2 text-xs"
+              onClick={() => onChartRangeChange(range)}
+              aria-pressed={chartRange === range}
+            >
+              {range}h
+            </Button>
+          ))}
+        </div>
       </div>
 
       <ResponsiveContainer width="100%" height={340}>

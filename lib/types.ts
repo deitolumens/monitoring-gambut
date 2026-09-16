@@ -25,7 +25,7 @@ export interface DepthReading {
 export interface TimeSeriesPoint {
   timestamp: string;
   timeLabel: string;
-  depth50: number;
-  depth100: number;
-  depth150: number;
+  depth50?: number;
+  depth100?: number;
+  depth150?: number;
 }

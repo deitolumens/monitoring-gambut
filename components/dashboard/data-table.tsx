@@ -19,17 +19,25 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { exportToCsv, formatTimestamp, getMoistureColor } from "@/lib/mock-data";
 import type { SoilReading, NodeId } from "@/lib/types";
 
 interface DataTableProps {
   data: SoilReading[];
   nodeId: NodeId;
+  exportToCsv: (data: SoilReading[], filename: string) => void;
+  formatTimestamp: (iso: string) => string;
+  getMoistureColor: (moisture: number) => string;
 }
 
 const PAGE_SIZE = 10;
 
-export function DataTable({ data, nodeId }: DataTableProps) {
+export function DataTable({
+  data,
+  nodeId,
+  exportToCsv,
+  formatTimestamp,
+  getMoistureColor,
+}: DataTableProps) {
   const [search, setSearch] = useState("");
   const [depthFilter, setDepthFilter] = useState<string>("all");
   const [page, setPage] = useState(0);
