@@ -13,7 +13,7 @@ export interface NodeStatus {
   id: NodeId;
   label: string;
   active: boolean;
-  mqttConnected: boolean;
+  dataAvailable: boolean;
   lastUpdate: string;
 }
 

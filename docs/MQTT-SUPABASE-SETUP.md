@@ -1,148 +1,184 @@
-# Setup MQTT Node A ke Supabase
+# ESP32 Langsung ke Supabase
 
-Dokumen ini menjelaskan alur data sensor nyata ke dashboard:
+Dokumen ini adalah alur yang digunakan project saat ini. ESP32 mengirim data
+langsung ke Supabase melalui HTTPS REST API. Dashboard Next.js hanya membaca
+data dari Supabase melalui API route dan tidak subscribe ke broker MQTT.
 
 ```text
-Node A -> MQTT broker -> scripts/mqtt-bridge-supabase.ts -> Supabase -> Next.js API -> dashboard
+ESP32 + sensor
+    | HTTPS POST /rest/v1/sensor_readings
+    v
+Supabase PostgreSQL (sensor_readings)
+    ^
+    | Next.js API route, polling setiap 30 detik
+    v
+Dashboard
 ```
 
-Dashboard tidak lagi menggunakan data pembacaan mock. Bridge menyimpan setiap pembacaan ke tabel `sensor_readings`, lalu API dashboard mengambil data tersebut dari Supabase.
+## 1. Siapkan Supabase
 
-## 1. Prasyarat
-
-- Node.js 18 atau lebih baru
-- Project Supabase aktif
-- MQTT broker aktif, misalnya HiveMQ Cloud
-- Node A dapat publish ke broker
-
-Install dependency jika belum tersedia:
-
-```bash
-npm install
-npm install -D tsx
-```
-
-## 2. Konfigurasi Supabase
-
-1. Buka Supabase SQL Editor.
-2. Jalankan isi [`database-schema-supabase.sql`](./database-schema-supabase.sql).
-3. Pastikan baris node berikut tersedia:
+1. Buat project Supabase.
+2. Jalankan [`database-schema-supabase.sql`](./database-schema-supabase.sql) di SQL Editor.
+3. Pastikan node sudah terdaftar:
 
 ```sql
-SELECT id, is_active, mqtt_topic
+SELECT id, label, is_active
 FROM public.nodes
 WHERE id = 'A';
 ```
 
-Node A menggunakan topic `peatland/nodeA/data` secara default.
+4. Ambil `Project URL` dan `anon public key` dari **Project Settings > API**.
 
-## 3. Environment
+Schema membuat RLS policy yang mengizinkan role `anon` melakukan `INSERT` ke
+`sensor_readings` dengan validasi kedalaman dan kelembaban. Jangan pernah
+memasukkan `SUPABASE_SERVICE_KEY` ke firmware ESP32.
 
-Buat file `.env.local` untuk aplikasi Next.js dan file `.env` untuk bridge. Jangan commit kedua file tersebut karena berisi service role key.
+## 2. Konfigurasi dashboard
 
-### `.env.local`
+Buat `.env.local` berdasarkan `.env.supabase.example`:
 
 ```env
 SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_KEY=your-service-role-key
 SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_KEY=your-service-role-key
 ```
 
-### `.env` bridge
+`SUPABASE_SERVICE_KEY` hanya digunakan server-side oleh API route. Dashboard
+tidak membutuhkan URL, username, password, topic, atau dependency MQTT.
 
-```env
-MQTT_URL=wss://5983d80f70534c6b89c3343d2a478e3a.s1.eu.hivemq.cloud:8884/mqtt
-MQTT_USERNAME=your-mqtt-username
-MQTT_PASSWORD=your-mqtt-password
-MQTT_TOPIC=peatland/+/data
-MQTT_REJECT_UNAUTHORIZED=true
-
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_KEY=your-service-role-key
-```
-
-Untuk HiveMQ Cloud via WebSocket Secure, gunakan URL dengan path `/mqtt` seperti di atas. Port `8883` digunakan untuk MQTT TLS biasa; konfigurasi ini memakai WebSocket Secure port `8884`.
-
-## 4. Payload Node A
-
-Bridge mendukung satu pembacaan per pesan:
-
-```json
-{
-  "nodeId": "A",
-  "depth": 50,
-  "moisture": 62.3,
-  "rawValue": 740,
-  "timestamp": "2026-09-16T14:32:00Z"
-}
-```
-
-Bridge juga mendukung beberapa kedalaman dalam satu pesan. `nodeId` dapat dihilangkan jika topic sudah mengandung `nodeA`:
-
-```json
-{
-  "timestamp": "2026-09-16T14:32:00Z",
-  "readings": [
-    { "depth": 50, "moisture": 62.3, "rawValue": 740 },
-    { "depth": 100, "moisture": 58.1, "rawValue": 695 },
-    { "depth": 150, "moisture": 54.7, "rawValue": 650 }
-  ]
-}
-```
-
-Nilai `depth` yang diterima adalah `50`, `100`, atau `150`. Nilai `moisture` harus berada pada rentang `0` sampai `100`. Pesan yang tidak valid dicatat di log bridge dan tidak dimasukkan ke database.
-
-## 5. Menjalankan sistem
-
-Terminal 1, jalankan dashboard:
+Jalankan dashboard:
 
 ```bash
+npm install
 npm run dev
 ```
 
-Terminal 2, jalankan bridge:
+## 3. Format data yang dikirim ESP32
 
-```bash
-npx tsx scripts/mqtt-bridge-supabase.ts
-```
-
-Bridge akan subscribe ke `MQTT_TOPIC`, reconnect otomatis setiap 5 detik, dan mencetak baris seperti berikut saat data tersimpan:
+ESP32 mengirim satu atau beberapa baris JSON ke endpoint berikut:
 
 ```text
-[SUPABASE] Stored: Node A | 50cm | 62.3%
+POST https://your-project.supabase.co/rest/v1/sensor_readings
 ```
 
-Dashboard melakukan refresh data setiap 30 detik. Endpoint yang digunakan adalah:
+Contoh body satu pembacaan:
+
+```json
+{
+  "node_id": "A",
+  "depth_cm": 50,
+  "moisture": 62.3,
+  "raw_value": 740,
+  "measured_at": "2026-09-18T07:32:00Z"
+}
+```
+
+Header yang wajib dikirim:
 
 ```text
+apikey: <SUPABASE_ANON_KEY>
+Authorization: Bearer <SUPABASE_ANON_KEY>
+Content-Type: application/json
+Prefer: return=minimal
+```
+
+Nilai `depth_cm` hanya `50`, `100`, atau `150`. Nilai `moisture` harus berada
+di antara `0` dan `100`. `received_at` diisi otomatis oleh database.
+
+## 4. Contoh kode ESP32
+
+Contoh berikut memakai `WiFi.h`, `HTTPClient.h`, dan `ArduinoJson.h`. Kirim
+tiga kedalaman sebagai array agar satu siklus sensor menjadi satu request.
+
+```cpp
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
+
+const char* WIFI_SSID = "your_wifi_ssid";
+const char* WIFI_PASS = "your_wifi_password";
+const char* SUPABASE_URL = "https://your-project.supabase.co";
+const char* SUPABASE_ANON_KEY = "your-anon-public-key";
+const char* NODE_ID = "A";
+
+const int SENSOR_50 = 34;
+const int SENSOR_100 = 35;
+const int SENSOR_150 = 32;
+
+float readMoisture(int pin) {
+  int raw = analogRead(pin);
+  return constrain((4095.0f - raw) * 100.0f / 4095.0f, 0.0f, 100.0f);
+}
+
+void sendReadings() {
+  HTTPClient http;
+  String endpoint = String(SUPABASE_URL) + "/rest/v1/sensor_readings";
+  http.begin(endpoint);
+  http.addHeader("apikey", SUPABASE_ANON_KEY);
+  http.addHeader("Authorization", String("Bearer ") + SUPABASE_ANON_KEY);
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("Prefer", "return=minimal");
+
+  DynamicJsonDocument body(768);
+  JsonArray readings = body.to<JsonArray>();
+  int pins[] = {SENSOR_50, SENSOR_100, SENSOR_150};
+  int depths[] = {50, 100, 150};
+
+  for (int i = 0; i < 3; i++) {
+    int raw = analogRead(pins[i]);
+    JsonObject reading = readings.createNestedObject();
+    reading["node_id"] = NODE_ID;
+    reading["depth_cm"] = depths[i];
+    reading["moisture"] = readMoisture(pins[i]);
+    reading["raw_value"] = raw;
+    reading["measured_at"] = "2026-09-18T07:32:00Z"; // replace with NTP time
+  }
+
+  String payload;
+  serializeJson(body, payload);
+  int status = http.POST(payload);
+  Serial.printf("Supabase response: %d\n", status);
+  http.end();
+}
+
+void setup() {
+  Serial.begin(115200);
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
+  while (WiFi.status() != WL_CONNECTED) delay(500);
+}
+
+void loop() {
+  if (WiFi.status() == WL_CONNECTED) sendReadings();
+  delay(60000);
+}
+```
+
+Pada implementasi nyata, sinkronkan waktu ESP32 dengan NTP sebelum mengisi
+`measured_at`. Jika waktu tidak tersedia, gunakan waktu server dengan mengubah
+kolom database agar memiliki default `NOW()` atau kirim timestamp yang valid.
+
+## 5. Cara dashboard membaca data
+
+Hook [`use-soil-data.ts`](../hooks/use-soil-data.ts) melakukan polling setiap
+30 detik ke endpoint berikut:
+
+```text
+GET /api/nodes
 GET /api/readings/live?node=A
 GET /api/readings?node=A&hours=24
 GET /api/readings/history?node=A&limit=48&offset=0
 ```
 
-## 6. Deployment Vercel
+Setiap endpoint membaca tabel `sensor_readings` melalui `supabaseAdmin` di
+server Next.js. Browser tidak mengetahui service role key dan tidak membuat
+koneksi MQTT. Status node pada dashboard berarti ada data Supabase dalam lima
+menit terakhir, bukan status koneksi broker.
 
-Vercel hanya menjalankan dashboard Next.js dan API route berdasarkan request.
-Vercel tidak menjalankan `scripts/mqtt-bridge-supabase.ts` sebagai proses MQTT
-subscriber yang hidup terus-menerus. Karena itu, bridge harus dijalankan pada
-server atau worker terpisah seperti Railway, Render, Fly.io, VPS, atau komputer
-yang selalu aktif.
+## 6. Verifikasi end-to-end
 
-Pada service tersebut, pasang repository dan environment variables dari bagian
-`.env bridge`, lalu gunakan command berikut:
-
-```bash
-npm install
-npm run bridge:supabase
-```
-
-Dashboard Vercel tetap menggunakan environment variables `SUPABASE_URL` dan
-`SUPABASE_SERVICE_KEY` milik project Supabase yang sama. Verifikasi log service
-bridge sampai muncul `Subscribed to topic` sebelum mengirim data dari ESP32.
-
-## 7. Verifikasi
-
-Pastikan bridge menerima pesan, lalu jalankan query ini di Supabase SQL Editor:
+1. Flash firmware ESP32 dan buka Serial Monitor.
+2. Pastikan response POST bernilai `201` atau `200`.
+3. Periksa data di Supabase:
 
 ```sql
 SELECT node_id, depth_cm, moisture, raw_value, measured_at, received_at
@@ -152,14 +188,21 @@ ORDER BY measured_at DESC
 LIMIT 10;
 ```
 
-Kemudian buka dashboard dan pilih Node A. Jika tabel berisi data tetapi dashboard kosong, periksa `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, dan response endpoint API di browser.
+4. Jalankan dashboard dan pilih Node A.
+5. Tunggu maksimal 30 detik atau gunakan tombol Retry.
 
-## 8. Troubleshooting singkat
+## 7. Troubleshooting
 
 | Gejala | Pemeriksaan |
 |---|---|
-| Bridge tidak connect | Cek `MQTT_URL`, username, password, dan port TLS broker. |
-| Pesan invalid | Cek topic dan field `depth`/`moisture`; lihat log `[MQTT] Invalid payload`. |
-| Foreign key error | Pastikan node `A` sudah ada di tabel `public.nodes`. |
-| Data ada di Supabase tetapi status offline | Status dashboard aktif jika ada pembacaan baru dalam 5 menit terakhir. |
-| Service key bocor | Rotate key di Supabase dan perbarui `.env`; service role key hanya boleh dipakai server-side. |
+| ESP32 mendapat `401` atau `403` | Pastikan `apikey`, bearer token, URL, dan policy RLS benar. Gunakan anon key, bukan service key. |
+| ESP32 mendapat `400` | Periksa nama kolom, format timestamp ISO 8601, depth, dan rentang moisture. |
+| Data ada di Supabase tetapi dashboard kosong | Periksa `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, dan endpoint `/api/readings/live`. |
+| Status dashboard “No recent data” | Pastikan `measured_at` memakai waktu UTC yang benar dan pembacaan terbaru kurang dari lima menit. |
+| Data dobel | Kirim satu batch per siklus dan pertimbangkan menambahkan `device_message_id` unik jika diperlukan. |
+
+## 8. Catatan migrasi MQTT
+
+File bridge MQTT lama tetap ada sebagai artefak migrasi dan tidak dijalankan
+oleh dashboard. Untuk arsitektur direct-to-Supabase, ESP32 tidak perlu broker,
+topic, `PubSubClient`, atau `scripts/mqtt-bridge-supabase.ts`.

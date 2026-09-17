@@ -40,8 +40,33 @@ CREATE INDEX IF NOT EXISTS idx_readings_node_depth_time
 CREATE INDEX IF NOT EXISTS idx_readings_measured_at
   ON public.sensor_readings (measured_at DESC);
 
--- Enable Realtime for sensor_readings (for live dashboard updates)
-ALTER PUBLICATION supabase_realtime ADD TABLE public.sensor_readings;
+-- The dashboard polls the API, so Supabase Realtime is not required.
+
+-- ESP32 writes through the Supabase REST API with the public anon key.
+-- Keep validation in the database and never embed the service role key in firmware.
+ALTER TABLE public.sensor_readings ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "ESP32 can insert sensor readings" ON public.sensor_readings;
+CREATE POLICY "ESP32 can insert sensor readings"
+  ON public.sensor_readings FOR INSERT
+  TO anon, authenticated
+  WITH CHECK (
+    depth_cm IN (50, 100, 150)
+    AND moisture >= 0
+    AND moisture <= 100
+  );
+
+ALTER TABLE public.nodes ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Dashboard can read nodes" ON public.nodes;
+CREATE POLICY "Dashboard can read nodes"
+  ON public.nodes FOR SELECT
+  TO anon, authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "Dashboard can read sensor readings" ON public.sensor_readings;
+CREATE POLICY "Dashboard can read sensor readings"
+  ON public.sensor_readings FOR SELECT
+  TO anon, authenticated
+  USING (true);
 
 -- ============================================================
 -- Table: mqtt_connection_log

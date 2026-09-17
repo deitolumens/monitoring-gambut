@@ -38,7 +38,7 @@ export async function GET() {
     const diffMin = latestDate
       ? (now.getTime() - latestDate.getTime()) / (60 * 1000)
       : Infinity;
-    const mqttConnected = diffMin < 5;
+    const dataAvailable = diffMin < 5;
     let lastUpdate = "—";
 
     if (latest && diffMin < 5) {
@@ -49,7 +49,7 @@ export async function GET() {
       id: n.id,
       label: n.label ?? n.id,
       active: n.is_active,
-      mqttConnected,
+      dataAvailable,
       lastUpdate,
     };
   });

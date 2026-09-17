@@ -7,14 +7,12 @@ import { VerticalProfile } from "./vertical-profile";
 import { TrendChart } from "./trend-chart";
 import { DataTable } from "./data-table";
 import { ChartRange, useSoilData } from "@/hooks/use-soil-data";
-import { useMqttDebug } from "@/hooks/use-mqtt-debug";
 import { exportToCsv, formatTimestamp, getMoistureColor } from "@/lib/mock-data";
 import type { NodeId } from "@/lib/types";
 
 export function Dashboard() {
   const [selectedNodeId, setSelectedNodeId] = useState<NodeId>("A");
   const [chartRange, setChartRange] = useState<ChartRange>(24);
-  useMqttDebug();
 
   const {
     nodes,
@@ -37,7 +35,7 @@ export function Dashboard() {
         <div className="text-center">
           <p className="text-lg font-medium">Loading dashboard...</p>
           <p className="text-sm text-muted-foreground mt-2">
-            Connecting to MQTT &amp; database
+            Loading data from Supabase
           </p>
         </div>
       </div>
@@ -155,7 +153,7 @@ export function Dashboard() {
         <footer className="border-t pt-6 text-center text-xs text-muted-foreground">
           <p>Peatland Soil Moisture Monitoring System — Academic Thesis Project</p>
           <p className="mt-1">
-            Data via MQTT · Storage: Supabase · Sensors: Capacitive (3 depths)
+            Data source: Supabase · Sensors: Capacitive (3 depths)
           </p>
         </footer>
       </main>

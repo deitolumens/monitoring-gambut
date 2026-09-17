@@ -26,28 +26,28 @@ export function StatusHeader({ node }: StatusHeaderProps) {
           <span
             className={cn(
               "relative flex h-2.5 w-2.5",
-              node.mqttConnected ? "text-accent" : "text-destructive"
+              node.dataAvailable ? "text-accent" : "text-destructive"
             )}
           >
-            {node.mqttConnected && (
+            {node.dataAvailable && (
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75" />
             )}
             <span
               className={cn(
                 "relative inline-flex h-2.5 w-2.5 rounded-full",
-                node.mqttConnected ? "bg-accent" : "bg-destructive"
+                node.dataAvailable ? "bg-accent" : "bg-destructive"
               )}
             />
           </span>
           <div>
-            <p className="text-xs text-muted-foreground">MQTT</p>
+            <p className="text-xs text-muted-foreground">Supabase data</p>
             <p
               className={cn(
                 "text-sm font-medium",
-                node.mqttConnected ? "text-accent" : "text-destructive"
+                node.dataAvailable ? "text-accent" : "text-destructive"
               )}
             >
-              {node.mqttConnected ? "Connected" : "Disconnected"}
+              {node.dataAvailable ? "Available" : "No recent data"}
             </p>
           </div>
         </div>
