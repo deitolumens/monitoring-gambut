@@ -7,12 +7,14 @@ import { VerticalProfile } from "./vertical-profile";
 import { TrendChart } from "./trend-chart";
 import { DataTable } from "./data-table";
 import { ChartRange, useSoilData } from "@/hooks/use-soil-data";
+import { useMqttDebug } from "@/hooks/use-mqtt-debug";
 import { exportToCsv, formatTimestamp, getMoistureColor } from "@/lib/mock-data";
 import type { NodeId } from "@/lib/types";
 
 export function Dashboard() {
   const [selectedNodeId, setSelectedNodeId] = useState<NodeId>("A");
   const [chartRange, setChartRange] = useState<ChartRange>(24);
+  useMqttDebug();
 
   const {
     nodes,

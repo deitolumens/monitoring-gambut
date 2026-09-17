@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "bridge:supabase": "tsx scripts/mqtt-bridge-supabase.ts",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
   },

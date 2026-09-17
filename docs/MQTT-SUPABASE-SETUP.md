@@ -120,7 +120,27 @@ GET /api/readings?node=A&hours=24
 GET /api/readings/history?node=A&limit=48&offset=0
 ```
 
-## 6. Verifikasi
+## 6. Deployment Vercel
+
+Vercel hanya menjalankan dashboard Next.js dan API route berdasarkan request.
+Vercel tidak menjalankan `scripts/mqtt-bridge-supabase.ts` sebagai proses MQTT
+subscriber yang hidup terus-menerus. Karena itu, bridge harus dijalankan pada
+server atau worker terpisah seperti Railway, Render, Fly.io, VPS, atau komputer
+yang selalu aktif.
+
+Pada service tersebut, pasang repository dan environment variables dari bagian
+`.env bridge`, lalu gunakan command berikut:
+
+```bash
+npm install
+npm run bridge:supabase
+```
+
+Dashboard Vercel tetap menggunakan environment variables `SUPABASE_URL` dan
+`SUPABASE_SERVICE_KEY` milik project Supabase yang sama. Verifikasi log service
+bridge sampai muncul `Subscribed to topic` sebelum mengirim data dari ESP32.
+
+## 7. Verifikasi
 
 Pastikan bridge menerima pesan, lalu jalankan query ini di Supabase SQL Editor:
 
@@ -134,7 +154,7 @@ LIMIT 10;
 
 Kemudian buka dashboard dan pilih Node A. Jika tabel berisi data tetapi dashboard kosong, periksa `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, dan response endpoint API di browser.
 
-## 7. Troubleshooting singkat
+## 8. Troubleshooting singkat
 
 | Gejala | Pemeriksaan |
 |---|---|
