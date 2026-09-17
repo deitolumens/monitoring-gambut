@@ -90,7 +90,7 @@ async function insertReadings(readings: MqttReading[]): Promise<void> {
     .insert(rows);
 
   if (error) {
-    console.error("[SUPABASE] Insert error:", error.message);
+    throw new Error(`[SUPABASE] Insert error: ${error.message}`);
   }
 }
 

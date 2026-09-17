@@ -59,29 +59,41 @@ export function useSoilData(selectedNodeId: NodeId, chartRange: ChartRange) {
         fetch(`/api/readings/history?node=${selectedNodeId}&limit=48&offset=0`),
       ]);
 
-      if (nodesRes.ok) {
-        const nodesJson = await nodesRes.json();
-        setNodes(nodesJson.nodes ?? []);
+      const failedResponse = [
+        nodesRes,
+        liveRes,
+        timeseriesRes,
+        historyRes,
+      ].find((response) => !response.ok);
+      if (failedResponse) {
+        let message = `Request failed (${failedResponse.status})`;
+        try {
+          const body = await failedResponse.json();
+          if (typeof body.error === "string") message = body.error;
+        } catch {
+          // Keep the HTTP status when the response is not JSON.
+        }
+        throw new Error(message);
       }
 
-      if (liveRes.ok) {
-        const json: ReadingsResponse = await liveRes.json();
-        const readings: SoilReading[] = (json.readings ?? [])
-          .filter((r) => r.moisture !== undefined)
-          .map((r) =>
-            mapToSoilReading(
-              selectedNodeId,
-              r.depth,
-              r.moisture ?? 0,
-              r.measured_at ?? new Date().toISOString()
-            )
-          );
-        setCurrentReadings(readings);
-      }
+      const nodesJson = await nodesRes.json();
+      setNodes(nodesJson.nodes ?? []);
 
-      if (timeseriesRes.ok) {
-        const json: ReadingsDataResponse = await timeseriesRes.json();
-        const points: TimeSeriesPoint[] = (json.timeseries ?? []).map((t) => {
+      const liveJson: ReadingsResponse = await liveRes.json();
+      const readings: SoilReading[] = (liveJson.readings ?? [])
+        .filter((r) => r.moisture !== undefined)
+        .map((r) =>
+          mapToSoilReading(
+            selectedNodeId,
+            r.depth,
+            r.moisture ?? 0,
+            r.measured_at ?? new Date().toISOString()
+          )
+        );
+      setCurrentReadings(readings);
+
+      const timeseriesJson: ReadingsDataResponse = await timeseriesRes.json();
+      const points: TimeSeriesPoint[] = (timeseriesJson.timeseries ?? []).map((t) => {
           const d = new Date(t.measured_at);
           const hh = d.getUTCHours().toString().padStart(2, "0");
           const mm = d.getUTCMinutes().toString().padStart(2, "0");
@@ -92,30 +104,27 @@ export function useSoilData(selectedNodeId: NodeId, chartRange: ChartRange) {
             depth100: t.depth_cm === 100 ? t.moisture : undefined,
             depth150: t.depth_cm === 150 ? t.moisture : undefined,
           };
-        });
+      });
 
-        const grouped: Record<string, TimeSeriesPoint> = {};
-        for (const p of points) {
-          if (!grouped[p.timeLabel]) {
-            grouped[p.timeLabel] = {
-              timestamp: p.timestamp,
-              timeLabel: p.timeLabel,
-              depth50: undefined,
-              depth100: undefined,
-              depth150: undefined,
-            };
-          }
-          if (p.depth50 !== undefined) grouped[p.timeLabel].depth50 = p.depth50;
-          if (p.depth100 !== undefined) grouped[p.timeLabel].depth100 = p.depth100;
-          if (p.depth150 !== undefined) grouped[p.timeLabel].depth150 = p.depth150;
+      const grouped: Record<string, TimeSeriesPoint> = {};
+      for (const p of points) {
+        if (!grouped[p.timeLabel]) {
+          grouped[p.timeLabel] = {
+            timestamp: p.timestamp,
+            timeLabel: p.timeLabel,
+            depth50: undefined,
+            depth100: undefined,
+            depth150: undefined,
+          };
         }
-        setTimeSeriesData(Object.values(grouped));
+        if (p.depth50 !== undefined) grouped[p.timeLabel].depth50 = p.depth50;
+        if (p.depth100 !== undefined) grouped[p.timeLabel].depth100 = p.depth100;
+        if (p.depth150 !== undefined) grouped[p.timeLabel].depth150 = p.depth150;
       }
+      setTimeSeriesData(Object.values(grouped));
 
-      if (historyRes.ok) {
-        const json: HistoryResponse = await historyRes.json();
-        setHistoricalData(json.data ?? []);
-      }
+      const historyJson: HistoryResponse = await historyRes.json();
+      setHistoricalData(historyJson.data ?? []);
     } catch (err) {
       console.error("[Dashboard] Fetch error:", err);
       setError(err instanceof Error ? err.message : "Unknown error");
