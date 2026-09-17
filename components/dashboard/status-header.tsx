@@ -1,6 +1,6 @@
 "use client";
 
-import { Radio, Loader2 } from "lucide-react";
+import { Database } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { NodeStatus } from "@/lib/types";
 
@@ -13,7 +13,7 @@ export function StatusHeader({ node }: StatusHeaderProps) {
     <div className="flex flex-col gap-4 rounded-lg border bg-card p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-3">
         <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10">
-          <Radio className="h-6 w-6 text-primary" />
+          <Database className="h-6 w-6 text-primary" />
         </div>
         <div>
           <p className="text-sm text-muted-foreground">Monitoring Station</p>
@@ -21,52 +21,33 @@ export function StatusHeader({ node }: StatusHeaderProps) {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-6">
+      <div className="flex items-center gap-2">
         <div className="flex items-center gap-2">
           <span
             className={cn(
               "relative flex h-2.5 w-2.5",
-              node.dataAvailable ? "text-accent" : "text-destructive"
+              node.supabaseConnected ? "text-accent" : "text-destructive"
             )}
           >
-            {node.dataAvailable && (
+            {node.supabaseConnected && (
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent opacity-75" />
             )}
             <span
               className={cn(
                 "relative inline-flex h-2.5 w-2.5 rounded-full",
-                node.dataAvailable ? "bg-accent" : "bg-destructive"
+                node.supabaseConnected ? "bg-accent" : "bg-destructive"
               )}
             />
           </span>
           <div>
-            <p className="text-xs text-muted-foreground">Supabase data</p>
+            <p className="text-xs text-muted-foreground">Supabase</p>
             <p
               className={cn(
                 "text-sm font-medium",
-                node.dataAvailable ? "text-accent" : "text-destructive"
+                node.supabaseConnected ? "text-accent" : "text-destructive"
               )}
             >
-              {node.dataAvailable ? "Available" : "No recent data"}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Loader2 className="h-4 w-4 text-muted-foreground" />
-          <div>
-            <p className="text-xs text-muted-foreground">Last Update</p>
-            <p className="text-sm font-medium">
-              {node.lastUpdate === "—"
-                ? "—"
-                : new Date(node.lastUpdate).toLocaleString("en-US", {
-                    day: "2-digit",
-                    month: "short",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                    hour12: false,
-                  })}
+              {node.supabaseConnected ? "Connected" : "Disconnected"}
             </p>
           </div>
         </div>

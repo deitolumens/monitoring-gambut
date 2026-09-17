@@ -95,8 +95,8 @@ export function useSoilData(selectedNodeId: NodeId, chartRange: ChartRange) {
       const timeseriesJson: ReadingsDataResponse = await timeseriesRes.json();
       const points: TimeSeriesPoint[] = (timeseriesJson.timeseries ?? []).map((t) => {
           const d = new Date(t.measured_at);
-          const hh = d.getUTCHours().toString().padStart(2, "0");
-          const mm = d.getUTCMinutes().toString().padStart(2, "0");
+          const hh = d.getHours().toString().padStart(2, "0");
+          const mm = d.getMinutes().toString().padStart(2, "0");
           return {
             timestamp: t.measured_at,
             timeLabel: `${hh}:${mm}`,

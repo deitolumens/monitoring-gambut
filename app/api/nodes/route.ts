@@ -14,43 +14,12 @@ export async function GET() {
     );
   }
 
-  const { data: readings, error: readingsError } = await supabaseAdmin
-    .from("sensor_readings")
-    .select("node_id, measured_at")
-    .order("measured_at", { ascending: false })
-    .limit(100);
-
-  if (readingsError) {
-    console.error("[API/nodes] Failed to fetch readings:", readingsError.message);
-  }
-
-  const latestReadingByNode = new Map<string, string>();
-  for (const reading of readings ?? []) {
-    if (!latestReadingByNode.has(reading.node_id)) {
-      latestReadingByNode.set(reading.node_id, reading.measured_at);
-    }
-  }
-
-  const now = new Date();
   const result = (nodes ?? []).map((n) => {
-    const latest = latestReadingByNode.get(n.id);
-    const latestDate = latest ? new Date(latest) : null;
-    const diffMin = latestDate
-      ? (now.getTime() - latestDate.getTime()) / (60 * 1000)
-      : Infinity;
-    const dataAvailable = diffMin < 5;
-    let lastUpdate = "—";
-
-    if (latest && diffMin < 5) {
-      lastUpdate = latest;
-    }
-
     return {
       id: n.id,
       label: n.label ?? n.id,
       active: n.is_active,
-      dataAvailable,
-      lastUpdate,
+      supabaseConnected: true,
     };
   });
 

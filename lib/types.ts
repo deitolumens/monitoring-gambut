@@ -13,8 +13,7 @@ export interface NodeStatus {
   id: NodeId;
   label: string;
   active: boolean;
-  dataAvailable: boolean;
-  lastUpdate: string;
+  supabaseConnected: boolean;
 }
 
 export interface DepthReading {
