@@ -33,7 +33,8 @@ const CHART_RANGES: ChartRange[] = [4, 12, 24];
 
 export function TrendChart({ data, chartRange, onChartRangeChange }: TrendChartProps) {
   const [zoom, setZoom] = useState({ startIndex: 0, endIndex: Math.max(data.length - 1, 0) });
-  const maxMoisture = data.reduce((maximum, point) => {
+  const visibleData = data.slice(zoom.startIndex, zoom.endIndex + 1);
+  const maxMoisture = visibleData.reduce((maximum, point) => {
     return Math.max(
       maximum,
       point.depth50 ?? 0,
@@ -48,7 +49,19 @@ export function TrendChart({ data, chartRange, onChartRangeChange }: TrendChartP
   );
 
   useEffect(() => {
-    setZoom({ startIndex: 0, endIndex: Math.max(data.length - 1, 0) });
+    const latestIndex = Math.max(data.length - 1, 0);
+    const latestTimestamp = data[latestIndex]?.timestamp;
+    const rangeStart = latestTimestamp
+      ? new Date(new Date(latestTimestamp).getTime() - chartRange * 60 * 60 * 1000)
+      : null;
+    const startIndex = rangeStart
+      ? Math.max(
+          0,
+          data.findIndex((point) => new Date(point.timestamp) >= rangeStart)
+        )
+      : 0;
+
+    setZoom({ startIndex, endIndex: latestIndex });
   }, [chartRange, data.length]);
 
   const visiblePointCount = zoom.endIndex - zoom.startIndex + 1;

@@ -24,6 +24,7 @@ interface HistoryResponse {
 export type ChartRange = 4 | 12 | 24;
 
 const POLL_INTERVAL_MS = 30_000;
+const CHART_DATA_HOURS = 72;
 
 function mapToSoilReading(
   nodeId: NodeId,
@@ -55,7 +56,7 @@ export function useSoilData(selectedNodeId: NodeId, chartRange: ChartRange) {
       const [nodesRes, liveRes, timeseriesRes, historyRes] = await Promise.all([
         fetch("/api/nodes"),
         fetch(`/api/readings/live?node=${selectedNodeId}`),
-        fetch(`/api/readings?node=${selectedNodeId}&hours=${chartRange}`),
+        fetch(`/api/readings?node=${selectedNodeId}&hours=${CHART_DATA_HOURS}`),
         fetch(`/api/readings/history?node=${selectedNodeId}&limit=48&offset=0`),
       ]);
 
@@ -97,9 +98,12 @@ export function useSoilData(selectedNodeId: NodeId, chartRange: ChartRange) {
           const d = new Date(t.measured_at);
           const hh = d.getHours().toString().padStart(2, "0");
           const mm = d.getMinutes().toString().padStart(2, "0");
+          const dateLabel = `${d.getDate().toString().padStart(2, "0")}/${(d.getMonth() + 1)
+            .toString()
+            .padStart(2, "0")}`;
           return {
             timestamp: t.measured_at,
-            timeLabel: `${hh}:${mm}`,
+            timeLabel: `${dateLabel} ${hh}:${mm}`,
             depth50: t.depth_cm === 50 ? t.moisture : undefined,
             depth100: t.depth_cm === 100 ? t.moisture : undefined,
             depth150: t.depth_cm === 150 ? t.moisture : undefined,
@@ -108,8 +112,8 @@ export function useSoilData(selectedNodeId: NodeId, chartRange: ChartRange) {
 
       const grouped: Record<string, TimeSeriesPoint> = {};
       for (const p of points) {
-        if (!grouped[p.timeLabel]) {
-          grouped[p.timeLabel] = {
+        if (!grouped[p.timestamp]) {
+          grouped[p.timestamp] = {
             timestamp: p.timestamp,
             timeLabel: p.timeLabel,
             depth50: undefined,
@@ -117,9 +121,9 @@ export function useSoilData(selectedNodeId: NodeId, chartRange: ChartRange) {
             depth150: undefined,
           };
         }
-        if (p.depth50 !== undefined) grouped[p.timeLabel].depth50 = p.depth50;
-        if (p.depth100 !== undefined) grouped[p.timeLabel].depth100 = p.depth100;
-        if (p.depth150 !== undefined) grouped[p.timeLabel].depth150 = p.depth150;
+        if (p.depth50 !== undefined) grouped[p.timestamp].depth50 = p.depth50;
+        if (p.depth100 !== undefined) grouped[p.timestamp].depth100 = p.depth100;
+        if (p.depth150 !== undefined) grouped[p.timestamp].depth150 = p.depth150;
       }
       setTimeSeriesData(Object.values(grouped));
 
