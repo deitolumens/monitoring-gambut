@@ -21,7 +21,7 @@ interface HistoryResponse {
   offset: number;
 }
 
-export type ChartRange = 1 | 4 | 12 | 24;
+export type ChartRange = 4 | 12 | 24;
 
 const POLL_INTERVAL_MS = 30_000;
 
