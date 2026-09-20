@@ -3,12 +3,13 @@
 Arsitektur aktif project ini adalah:
 
 ```text
-ESP32 -> HTTPS REST Supabase -> sensor_readings -> Next.js API -> Dashboard
+ESP32 -> HTTPS REST Supabase -> sensor_readings -> v_sensor_terkalibrasi -> Next.js API -> Dashboard
 ```
 
 Dashboard tidak melakukan subscribe atau koneksi ke broker MQTT. Dashboard
-melakukan polling API Next.js setiap 30 detik, sedangkan API membaca data
-terbaru dari Supabase.
+melakukan polling API Next.js setiap 30 detik. Data mentah disimpan di
+`sensor_readings`, sedangkan API membaca hasil koreksi dari view
+`v_sensor_terkalibrasi`.
 
 Dokumentasi setup lengkap, contoh payload, RLS policy, contoh firmware ESP32,
 dan troubleshooting tersedia di [`MQTT-SUPABASE-SETUP.md`](./MQTT-SUPABASE-SETUP.md).

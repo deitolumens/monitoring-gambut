@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import {
+  CALIBRATED_READINGS_SOURCE,
+  supabaseAdmin,
+} from "@/lib/supabase";
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -8,12 +11,12 @@ export async function GET(request: NextRequest) {
   const offset = parseInt(searchParams.get("offset") ?? "0", 10);
 
   const countPromise = supabaseAdmin
-    .from("sensor_readings")
+    .from(CALIBRATED_READINGS_SOURCE)
     .select("*", { count: "exact", head: true })
     .eq("node_id", nodeId);
 
   const dataPromise = supabaseAdmin
-    .from("sensor_readings")
+    .from(CALIBRATED_READINGS_SOURCE)
     .select("node_id, depth_cm, moisture, measured_at")
     .eq("node_id", nodeId)
     .order("measured_at", { ascending: false })

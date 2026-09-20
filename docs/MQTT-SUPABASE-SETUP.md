@@ -10,7 +10,7 @@ ESP32 + sensor
     v
 Supabase PostgreSQL (sensor_readings)
     ^
-    | Next.js API route, polling setiap 30 detik
+    | Next.js API route membaca `v_sensor_terkalibrasi`, polling setiap 30 detik
     v
 Dashboard
 ```
@@ -169,10 +169,12 @@ GET /api/readings?node=A&hours=24
 GET /api/readings/history?node=A&limit=48&offset=0
 ```
 
-Setiap endpoint membaca tabel `sensor_readings` melalui `supabaseAdmin` di
-server Next.js. Browser tidak mengetahui service role key dan tidak membuat
-koneksi MQTT. Status node pada dashboard berarti ada data Supabase dalam lima
-menit terakhir, bukan status koneksi broker.
+Setiap endpoint pembacaan mengambil data dari view `v_sensor_terkalibrasi`
+melalui `supabaseAdmin` di server Next.js. Data mentah tetap ditulis ke tabel
+`sensor_readings`, lalu parameter koefisien diterapkan oleh view tersebut.
+Browser tidak mengetahui service role key dan tidak membuat koneksi MQTT.
+Status node pada dashboard berarti ada data Supabase dalam lima menit
+terakhir, bukan status koneksi broker.
 
 ## 6. Verifikasi end-to-end
 
@@ -182,7 +184,7 @@ menit terakhir, bukan status koneksi broker.
 
 ```sql
 SELECT node_id, depth_cm, moisture, raw_value, measured_at, received_at
-FROM public.sensor_readings
+FROM public.v_sensor_terkalibrasi
 WHERE node_id = 'A'
 ORDER BY measured_at DESC
 LIMIT 10;

@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import {
+  CALIBRATED_READINGS_SOURCE,
+  supabaseAdmin,
+} from "@/lib/supabase";
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const nodeId = searchParams.get("node") ?? "A";
 
   const { data, error } = await supabaseAdmin
-    .from("sensor_readings")
+    .from(CALIBRATED_READINGS_SOURCE)
     .select("node_id, depth_cm, moisture, measured_at")
     .eq("node_id", nodeId)
     .order("measured_at", { ascending: false })

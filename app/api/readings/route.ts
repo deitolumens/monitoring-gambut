@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import {
+  CALIBRATED_READINGS_SOURCE,
+  supabaseAdmin,
+} from "@/lib/supabase";
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -11,14 +14,14 @@ export async function GET(request: NextRequest) {
   const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
 
   const latestPromise = supabaseAdmin
-    .from("sensor_readings")
+    .from(CALIBRATED_READINGS_SOURCE)
     .select("node_id, depth_cm, moisture, measured_at")
     .eq("node_id", nodeId)
     .order("measured_at", { ascending: false })
     .limit(100);
 
   const timeseriesPromise = supabaseAdmin
-    .from("sensor_readings")
+    .from(CALIBRATED_READINGS_SOURCE)
     .select("measured_at, depth_cm, moisture")
     .eq("node_id", nodeId)
     .gte("measured_at", since)
