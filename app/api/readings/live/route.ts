@@ -10,9 +10,9 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await supabaseAdmin
     .from(CALIBRATED_READINGS_SOURCE)
-    .select("node_id, depth_cm, moisture, measured_at")
+    .select("node_id, depth_cm, moisture, measured_at, received_at")
     .eq("node_id", nodeId)
-    .order("measured_at", { ascending: false })
+    .order("received_at", { ascending: false })
     .limit(100);
 
   if (error) {
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
     if (!grouped.has(row.depth_cm)) {
       grouped.set(row.depth_cm, {
         moisture: row.moisture,
-        measured_at: row.measured_at,
+        measured_at: row.received_at ?? row.measured_at,
       });
     }
   }
@@ -34,5 +34,8 @@ export async function GET(request: NextRequest) {
     ...grouped.get(depth),
   }));
 
-  return NextResponse.json({ readings: result });
+  return NextResponse.json(
+    { readings: result },
+    { headers: { "Cache-Control": "no-store, max-age=0" } }
+  );
 }

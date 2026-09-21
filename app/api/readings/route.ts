@@ -18,17 +18,17 @@ export async function GET(request: NextRequest) {
 
   const latestPromise = supabaseAdmin
     .from(CALIBRATED_READINGS_SOURCE)
-    .select("node_id, depth_cm, moisture, measured_at")
+    .select("node_id, depth_cm, moisture, measured_at, received_at")
     .eq("node_id", nodeId)
-    .order("measured_at", { ascending: false })
+    .order("received_at", { ascending: false })
     .limit(100);
 
   const timeseriesPromise = supabaseAdmin
     .from(CALIBRATED_READINGS_SOURCE)
-    .select("measured_at, depth_cm, moisture")
+    .select("measured_at, received_at, depth_cm, moisture")
     .eq("node_id", nodeId)
-    .gte("measured_at", since)
-    .order("measured_at", { ascending: true });
+    .gte("received_at", since)
+    .order("received_at", { ascending: true });
 
   const [latestResult, timeseriesResult] = await Promise.all([
     latestPromise,
@@ -52,7 +52,11 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(
     {
       latest: latestResult.data ?? [],
-      timeseries: timeseriesResult.data ?? [],
+      timeseries: (timeseriesResult.data ?? []).map((row) => ({
+        measured_at: row.received_at ?? row.measured_at,
+        depth_cm: row.depth_cm,
+        moisture: row.moisture,
+      })),
     },
     {
       headers: {

@@ -10,7 +10,7 @@ interface ReadingsResponse {
 }
 
 interface ReadingsDataResponse {
-  latest: Array<{ node_id: string; depth_cm: number; moisture: number; measured_at: string }>;
+  latest: Array<{ node_id: string; depth_cm: number; moisture: number; measured_at: string; received_at?: string }>;
   timeseries: Array<{ measured_at: string; depth_cm: number; moisture: number }>;
 }
 
@@ -52,14 +52,15 @@ export function useSoilData(selectedNodeId: NodeId, chartRange: ChartRange) {
   const fetchData = useCallback(async () => {
     try {
       setError(null);
+      const cacheBust = Date.now();
 
       const [nodesRes, liveRes, timeseriesRes, historyRes] = await Promise.all([
-        fetch("/api/nodes", { cache: "no-store" }),
-        fetch(`/api/readings/live?node=${selectedNodeId}`, { cache: "no-store" }),
-        fetch(`/api/readings?node=${selectedNodeId}&hours=${CHART_DATA_HOURS}`, {
+        fetch(`/api/nodes?t=${cacheBust}`, { cache: "no-store" }),
+        fetch(`/api/readings/live?node=${selectedNodeId}&t=${cacheBust}`, { cache: "no-store" }),
+        fetch(`/api/readings?node=${selectedNodeId}&hours=${CHART_DATA_HOURS}&t=${cacheBust}`, {
           cache: "no-store",
         }),
-        fetch(`/api/readings/history?node=${selectedNodeId}&limit=48&offset=0`, {
+        fetch(`/api/readings/history?node=${selectedNodeId}&limit=48&offset=0&t=${cacheBust}`, {
           cache: "no-store",
         }),
       ]);

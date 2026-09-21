@@ -17,9 +17,9 @@ export async function GET(request: NextRequest) {
 
   const dataPromise = supabaseAdmin
     .from(CALIBRATED_READINGS_SOURCE)
-    .select("node_id, depth_cm, moisture, measured_at")
+    .select("node_id, depth_cm, moisture, measured_at, received_at")
     .eq("node_id", nodeId)
-    .order("measured_at", { ascending: false })
+    .order("received_at", { ascending: false })
     .range(offset, offset + limit - 1);
 
   const [{ count }, dataResult] = await Promise.all([countPromise, dataPromise]);
@@ -31,15 +31,18 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  return NextResponse.json({
-    data: (dataResult.data ?? []).map((row) => ({
-      nodeId: row.node_id,
-      depth: row.depth_cm,
-      moisture: row.moisture,
-      timestamp: row.measured_at,
-    })),
-    total: count ?? 0,
-    limit,
-    offset,
-  });
+  return NextResponse.json(
+    {
+      data: (dataResult.data ?? []).map((row) => ({
+        nodeId: row.node_id,
+        depth: row.depth_cm,
+        moisture: row.moisture,
+        timestamp: row.received_at ?? row.measured_at,
+      })),
+      total: count ?? 0,
+      limit,
+      offset,
+    },
+    { headers: { "Cache-Control": "no-store, max-age=0" } }
+  );
 }
