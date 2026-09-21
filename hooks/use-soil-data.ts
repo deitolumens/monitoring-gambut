@@ -54,10 +54,14 @@ export function useSoilData(selectedNodeId: NodeId, chartRange: ChartRange) {
       setError(null);
 
       const [nodesRes, liveRes, timeseriesRes, historyRes] = await Promise.all([
-        fetch("/api/nodes"),
-        fetch(`/api/readings/live?node=${selectedNodeId}`),
-        fetch(`/api/readings?node=${selectedNodeId}&hours=${CHART_DATA_HOURS}`),
-        fetch(`/api/readings/history?node=${selectedNodeId}&limit=48&offset=0`),
+        fetch("/api/nodes", { cache: "no-store" }),
+        fetch(`/api/readings/live?node=${selectedNodeId}`, { cache: "no-store" }),
+        fetch(`/api/readings?node=${selectedNodeId}&hours=${CHART_DATA_HOURS}`, {
+          cache: "no-store",
+        }),
+        fetch(`/api/readings/history?node=${selectedNodeId}&limit=48&offset=0`, {
+          cache: "no-store",
+        }),
       ]);
 
       const failedResponse = [
@@ -135,7 +139,7 @@ export function useSoilData(selectedNodeId: NodeId, chartRange: ChartRange) {
     } finally {
       setLoading(false);
     }
-  }, [chartRange, selectedNodeId]);
+  }, [selectedNodeId]);
 
   useEffect(() => {
     setLoading(true);

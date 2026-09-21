@@ -62,7 +62,7 @@ export function TrendChart({ data, chartRange, onChartRangeChange }: TrendChartP
       : 0;
 
     setZoom({ startIndex, endIndex: latestIndex });
-  }, [chartRange, data.length]);
+  }, [chartRange, data.length, data[data.length - 1]?.timestamp]);
 
   const visiblePointCount = zoom.endIndex - zoom.startIndex + 1;
   const canZoomIn = visiblePointCount > 2;

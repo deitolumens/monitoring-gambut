@@ -4,6 +4,9 @@ import {
   supabaseAdmin,
 } from "@/lib/supabase";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const nodeId = searchParams.get("node") ?? "A";
@@ -46,8 +49,15 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  return NextResponse.json({
-    latest: latestResult.data ?? [],
-    timeseries: timeseriesResult.data ?? [],
-  });
+  return NextResponse.json(
+    {
+      latest: latestResult.data ?? [],
+      timeseries: timeseriesResult.data ?? [],
+    },
+    {
+      headers: {
+        "Cache-Control": "no-store, max-age=0",
+      },
+    }
+  );
 }
