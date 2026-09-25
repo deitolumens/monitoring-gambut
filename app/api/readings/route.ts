@@ -3,6 +3,7 @@ import {
   CALIBRATED_READINGS_SOURCE,
   supabaseAdmin,
 } from "@/lib/supabase";
+import { isNodeId } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -48,6 +49,9 @@ async function fetchTimeseries(
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const nodeId = searchParams.get("node") ?? "A";
+  if (!isNodeId(nodeId)) {
+    return NextResponse.json({ error: "Invalid node. Use A, B, or C." }, { status: 400 });
+  }
   const requestedHours = Number(searchParams.get("hours") ?? "24");
   const hours = Number.isFinite(requestedHours)
     ? Math.min(Math.max(requestedHours, 1), 168)

@@ -29,6 +29,21 @@ WHERE id = 'A';
 
 4. Ambil `Project URL` dan `anon public key` dari **Project Settings > API**.
 
+Schema mendaftarkan dan mengaktifkan Node A, B, dan C. Jika schema lama sudah
+pernah dijalankan, jalankan ulang file tersebut agar view dashboard dibuat dan
+status Node B/C diperbarui menjadi aktif.
+
+Gunakan konfigurasi berikut pada tiga ESP32 yang berbeda:
+
+| Perangkat | `NODE_ID` | Node database | Topic opsional |
+|---|---|---|---|
+| ESP32 pertama | `A` | Node A | `peatland/nodeA/data` |
+| ESP32 kedua | `B` | Node B | `peatland/nodeB/data` |
+| ESP32 ketiga | `C` | Node C | `peatland/nodeC/data` |
+
+Firmware direct-to-Supabase hanya perlu mengubah `NODE_ID` pada masing-masing
+perangkat. Jangan memakai `SUPABASE_SERVICE_KEY` pada salah satu ESP32.
+
 Schema membuat RLS policy yang mengizinkan role `anon` melakukan `INSERT` ke
 `sensor_readings` dengan validasi kedalaman dan kelembaban. Jangan pernah
 memasukkan `SUPABASE_SERVICE_KEY` ke firmware ESP32.
@@ -99,6 +114,7 @@ const char* WIFI_SSID = "your_wifi_ssid";
 const char* WIFI_PASS = "your_wifi_password";
 const char* SUPABASE_URL = "https://your-project.supabase.co";
 const char* SUPABASE_ANON_KEY = "your-anon-public-key";
+// Gunakan "A", "B", atau "C"; setiap ESP32 harus memiliki NODE_ID unik.
 const char* NODE_ID = "A";
 
 const int SENSOR_50 = 34;
@@ -190,7 +206,7 @@ ORDER BY measured_at DESC
 LIMIT 10;
 ```
 
-4. Jalankan dashboard dan pilih Node A.
+4. Jalankan dashboard dan pilih Node A, Node B, atau Node C.
 5. Tunggu maksimal 30 detik atau gunakan tombol Retry.
 
 ## 7. Troubleshooting

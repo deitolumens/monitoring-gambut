@@ -3,16 +3,20 @@ import {
   CALIBRATED_READINGS_SOURCE,
   supabaseAdmin,
 } from "@/lib/supabase";
+import { isNodeId } from "@/lib/types";
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const nodeId = searchParams.get("node") ?? "A";
+  if (!isNodeId(nodeId)) {
+    return NextResponse.json({ error: "Invalid node. Use A, B, or C." }, { status: 400 });
+  }
 
   const { data, error } = await supabaseAdmin
     .from(CALIBRATED_READINGS_SOURCE)
     .select("node_id, depth_cm, moisture, measured_at, received_at")
     .eq("node_id", nodeId)
-    .order("received_at", { ascending: false })
+    .order("measured_at", { ascending: false })
     .limit(100);
 
   if (error) {

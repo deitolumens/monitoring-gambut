@@ -27,11 +27,14 @@ CREATE TABLE IF NOT EXISTS public.sensor_readings (
   moisture    DOUBLE PRECISION NOT NULL,
   raw_value   INTEGER,
   received_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-  measured_at TIMESTAMPTZ  NOT NULL,
+  measured_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
   CONSTRAINT valid_depth CHECK (depth_cm IN (50, 100, 150)),
   CONSTRAINT valid_moisture CHECK (moisture >= 0 AND moisture <= 100)
 );
+
+ALTER TABLE public.sensor_readings
+  ALTER COLUMN measured_at SET DEFAULT NOW();
 
 CREATE INDEX IF NOT EXISTS idx_readings_node_time
   ON public.sensor_readings (node_id, measured_at DESC);
@@ -39,6 +42,21 @@ CREATE INDEX IF NOT EXISTS idx_readings_node_depth_time
   ON public.sensor_readings (node_id, depth_cm, measured_at DESC);
 CREATE INDEX IF NOT EXISTS idx_readings_measured_at
   ON public.sensor_readings (measured_at DESC);
+
+-- Dashboard source. Replace moisture with calibrated expressions when
+-- per-sensor calibration coefficients are available.
+CREATE OR REPLACE VIEW public.v_sensor_terkalibrasi
+WITH (security_invoker = true)
+AS
+SELECT
+  id,
+  node_id,
+  depth_cm,
+  moisture,
+  raw_value,
+  measured_at,
+  received_at
+FROM public.sensor_readings;
 
 -- The dashboard polls the API, so Supabase Realtime is not required.
 
@@ -85,6 +103,10 @@ CREATE TABLE IF NOT EXISTS public.mqtt_connection_log (
 -- ============================================================
 INSERT INTO public.nodes (id, label, is_active, mqtt_topic, location) VALUES
   ('A', 'Node A', TRUE,  'peatland/nodeA/data', 'Lahan Gambut Sector 1'),
-  ('B', 'Node B', FALSE, 'peatland/nodeB/data', 'Lahan Gambut Sector 2'),
-  ('C', 'Node C', FALSE, 'peatland/nodeC/data', 'Lahan Gambut Sector 3')
-ON CONFLICT (id) DO NOTHING;
+  ('B', 'Node B', TRUE,  'peatland/nodeB/data', 'Lahan Gambut Sector 2'),
+  ('C', 'Node C', TRUE,  'peatland/nodeC/data', 'Lahan Gambut Sector 3')
+ON CONFLICT (id) DO UPDATE SET
+  label = EXCLUDED.label,
+  is_active = EXCLUDED.is_active,
+  mqtt_topic = EXCLUDED.mqtt_topic,
+  location = EXCLUDED.location;

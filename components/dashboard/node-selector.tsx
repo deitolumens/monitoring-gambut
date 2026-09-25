@@ -12,8 +12,6 @@ interface NodeSelectorProps {
 
 export function NodeSelector({ nodes, selectedNodeId, onSelect }: NodeSelectorProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const selected = nodes.find((n) => n.id === selectedNodeId) ?? nodes[0];
-
   return (
     <div className="flex flex-col gap-2">
       <label className="text-sm font-medium text-muted-foreground">Select Node</label>
@@ -32,9 +30,9 @@ export function NodeSelector({ nodes, selectedNodeId, onSelect }: NodeSelectorPr
             )}
           >
             {node.label}
-            {!node.active && (
+            {!node.supabaseConnected && (
               <span className="ml-2 text-xs font-normal text-muted-foreground">
-                (soon)
+                (offline)
               </span>
             )}
           </button>
@@ -86,8 +84,8 @@ export function NodeSelectorDropdown({
                 )}
               >
                 {node.label}
-                {!node.active && (
-                  <span className="text-xs text-muted-foreground">(soon)</span>
+                {!node.supabaseConnected && (
+                  <span className="text-xs text-muted-foreground">(offline)</span>
                 )}
               </button>
             ))}

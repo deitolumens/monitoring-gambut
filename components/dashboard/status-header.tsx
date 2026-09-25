@@ -40,14 +40,14 @@ export function StatusHeader({ node }: StatusHeaderProps) {
             />
           </span>
           <div>
-            <p className="text-xs text-muted-foreground">Supabase</p>
+            <p className="text-xs text-muted-foreground">Latest data</p>
             <p
               className={cn(
                 "text-sm font-medium",
                 node.supabaseConnected ? "text-accent" : "text-destructive"
               )}
             >
-              {node.supabaseConnected ? "Connected" : "Disconnected"}
+              {node.supabaseConnected ? "Online" : "No recent data"}
             </p>
           </div>
         </div>
