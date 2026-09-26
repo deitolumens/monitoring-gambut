@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowDown, ArrowUp, CircleAlert, Droplets, Radio, Waves } from "lucide-react";
-import { getMoistureColor, getMoistureLabel } from "@/lib/mock-data";
+import { getMoistureColor } from "@/lib/mock-data";
 import type { NodeId, SoilReading } from "@/lib/types";
 
 interface SystemInsightsProps {
@@ -46,7 +46,7 @@ export function SystemInsights({ readings }: SystemInsightsProps) {
               <Radio className="h-4 w-4 text-primary" />
               <h3 className="font-semibold">Live sensor matrix</h3>
             </div>
-            <span className="text-xs text-muted-foreground">moisture · raw ADC</span>
+            <span className="text-xs text-muted-foreground">moisture only</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[430px] text-sm">
@@ -71,7 +71,6 @@ export function SystemInsights({ readings }: SystemInsightsProps) {
                             <div className="flex items-center gap-2">
                               <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: color }} />
                               <span className="font-semibold">{reading.moisture.toFixed(1)}%</span>
-                              <span className="text-xs text-muted-foreground">{reading.rawValue ?? "—"}</span>
                             </div>
                           ) : (
                             <span className="text-muted-foreground">Waiting</span>

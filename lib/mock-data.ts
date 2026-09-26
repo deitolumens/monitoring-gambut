@@ -1,13 +1,12 @@
 import type { SoilReading } from "./types";
 
 export function exportToCsv(data: SoilReading[], filename: string) {
-  const headers = ["Timestamp", "Node ID", "Depth (cm)", "Moisture (%)", "Raw ADC"];
+  const headers = ["Timestamp", "Node ID", "Depth (cm)", "Moisture (%)"];
   const rows = data.map((d) => [
     new Date(d.timestamp).toISOString(),
     d.nodeId,
     d.depth.toString(),
     d.moisture.toString(),
-    d.rawValue?.toString() ?? "",
   ]);
 
   const csv = [headers, ...rows]

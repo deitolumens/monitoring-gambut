@@ -113,13 +113,12 @@ export function DataTable({
               <TableHead>Node ID</TableHead>
               <TableHead>Depth (cm)</TableHead>
               <TableHead>Moisture (%)</TableHead>
-              <TableHead>Raw ADC</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {pageData.length === 0 ? (
-              <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                <TableRow>
+                  <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
                   No measurements found.
                 </TableCell>
               </TableRow>
@@ -135,9 +134,6 @@ export function DataTable({
                       <span className="rounded-md bg-secondary px-2 py-0.5 text-xs font-medium">
                         {row.nodeId}
                       </span>
-                    </TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">
-                      {row.rawValue ?? "—"}
                     </TableCell>
                     <TableCell>{row.depth} cm</TableCell>
                     <TableCell>
