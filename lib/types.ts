@@ -13,6 +13,7 @@ export interface SoilReading {
   nodeId: NodeId;
   depth: DepthLevel;
   moisture: number;
+  rawValue?: number;
 }
 
 export interface NodeStatus {

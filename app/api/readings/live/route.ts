@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await supabaseAdmin
     .from(CALIBRATED_READINGS_SOURCE)
-    .select("node_id, depth_cm, moisture, measured_at, received_at")
+    .select("node_id, depth_cm, moisture, raw_value, measured_at, received_at")
     .eq("node_id", nodeId)
     .order("measured_at", { ascending: false })
     .limit(100);
@@ -23,11 +23,12 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  const grouped = new Map<number, { moisture: number; measured_at: string }>();
+  const grouped = new Map<number, { moisture: number; raw_value: number | null; measured_at: string }>();
   for (const row of data ?? []) {
     if (!grouped.has(row.depth_cm)) {
       grouped.set(row.depth_cm, {
         moisture: row.moisture,
+        raw_value: row.raw_value,
         measured_at: row.received_at ?? row.measured_at,
       });
     }

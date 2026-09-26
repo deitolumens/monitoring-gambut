@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
 
   const dataPromise = supabaseAdmin
     .from(CALIBRATED_READINGS_SOURCE)
-    .select("node_id, depth_cm, moisture, measured_at, received_at")
+    .select("node_id, depth_cm, moisture, raw_value, measured_at, received_at")
     .eq("node_id", nodeId)
     .order("measured_at", { ascending: false })
     .range(offset, offset + limit - 1);
@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
         nodeId: row.node_id,
         depth: row.depth_cm,
         moisture: row.moisture,
+        rawValue: row.raw_value,
         timestamp: row.received_at ?? row.measured_at,
       })),
       total: count ?? 0,

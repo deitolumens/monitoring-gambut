@@ -5,6 +5,7 @@ interface ReadingsResponse {
   readings: Array<{
     depth: number;
     moisture?: number;
+    raw_value?: number;
     measured_at?: string;
   }>;
 }
@@ -30,31 +31,34 @@ function mapToSoilReading(
   nodeId: NodeId,
   depth: number,
   moisture: number,
-  measuredAt: string
+  measuredAt: string,
+  rawValue?: number
 ): SoilReading {
   return {
     timestamp: measuredAt,
     nodeId,
     depth: depth as SoilReading["depth"],
     moisture,
+    rawValue,
   };
 }
 
 export function useSoilData(selectedNodeId: NodeId, chartRange: ChartRange) {
   const [nodes, setNodes] = useState<NodeStatus[]>([]);
   const [currentReadings, setCurrentReadings] = useState<SoilReading[]>([]);
+  const [allCurrentReadings, setAllCurrentReadings] = useState<SoilReading[]>([]);
   const [timeSeriesData, setTimeSeriesData] = useState<TimeSeriesPoint[]>([]);
   const [historicalData, setHistoricalData] = useState<SoilReading[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
       setError(null);
       const cacheBust = Date.now();
 
-      const [nodesRes, liveRes, timeseriesRes, historyRes] = await Promise.all([
+      const [nodesRes, liveRes, timeseriesRes, historyRes, ...allLiveResponses] = await Promise.all([
         fetch(`/api/nodes?t=${cacheBust}`, { cache: "no-store" }),
         fetch(`/api/readings/live?node=${selectedNodeId}&t=${cacheBust}`, { cache: "no-store" }),
         fetch(`/api/readings?node=${selectedNodeId}&hours=${CHART_DATA_HOURS}&t=${cacheBust}`, {
@@ -63,6 +67,9 @@ export function useSoilData(selectedNodeId: NodeId, chartRange: ChartRange) {
         fetch(`/api/readings/history?node=${selectedNodeId}&limit=48&offset=0&t=${cacheBust}`, {
           cache: "no-store",
         }),
+        ...(["A", "B", "C"] as NodeId[]).map((nodeId) =>
+          fetch(`/api/readings/live?node=${nodeId}&t=${cacheBust}`, { cache: "no-store" })
+        ),
       ]);
 
       const failedResponse = [
@@ -93,10 +100,31 @@ export function useSoilData(selectedNodeId: NodeId, chartRange: ChartRange) {
             selectedNodeId,
             r.depth,
             r.moisture ?? 0,
-            r.measured_at ?? new Date().toISOString()
+            r.measured_at ?? new Date().toISOString(),
+            r.raw_value
           )
         );
       setCurrentReadings(readings);
+
+      const allLiveJson = await Promise.all(
+        allLiveResponses.map((response) => response.json())
+      );
+      setAllCurrentReadings(
+        allLiveJson.flatMap((json, index) => {
+          const nodeId = (["A", "B", "C"] as NodeId[])[index];
+          return (json.readings ?? [])
+            .filter((reading: { moisture?: number }) => reading.moisture !== undefined)
+            .map((reading: { depth: number; moisture: number; raw_value?: number; measured_at?: string }) =>
+              mapToSoilReading(
+                nodeId,
+                reading.depth,
+                reading.moisture,
+                reading.measured_at ?? new Date().toISOString(),
+                reading.raw_value
+              )
+            );
+        })
+      );
 
       const timeseriesJson: ReadingsDataResponse = await timeseriesRes.json();
       const points: TimeSeriesPoint[] = (timeseriesJson.timeseries ?? []).map((t) => {
@@ -156,6 +184,7 @@ export function useSoilData(selectedNodeId: NodeId, chartRange: ChartRange) {
   return {
     nodes,
     currentReadings,
+    allCurrentReadings,
     timeSeriesData,
     historicalData,
     loading,

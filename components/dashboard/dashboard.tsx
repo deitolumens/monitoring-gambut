@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { StatusHeader } from "./status-header";
 import { NodeSelector } from "./node-selector";
 import { VerticalProfile } from "./vertical-profile";
+import { SystemInsights } from "./system-insights";
 import { TrendChart } from "./trend-chart";
 import { DataTable } from "./data-table";
 import { ChartRange, useSoilData } from "@/hooks/use-soil-data";
@@ -17,6 +18,7 @@ export function Dashboard() {
   const {
     nodes,
     currentReadings,
+    allCurrentReadings,
     timeSeriesData,
     historicalData,
     loading,
@@ -95,6 +97,8 @@ export function Dashboard() {
 
       <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
         <StatusHeader node={node} />
+
+        <SystemInsights readings={allCurrentReadings} />
 
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
