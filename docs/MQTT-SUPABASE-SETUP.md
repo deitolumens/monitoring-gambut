@@ -1,12 +1,16 @@
-# ESP32 Langsung ke Supabase
+# Koordinator ESP-NOW ke Supabase
 
-Dokumen ini adalah alur yang digunakan project saat ini. ESP32 mengirim data
-langsung ke Supabase melalui HTTPS REST API. Dashboard Next.js hanya membaca
-data dari Supabase melalui API route dan tidak subscribe ke broker MQTT.
+Dokumen ini menjelaskan alur final project. Node 1 dan Node 3 hanya mengukur
+sensor lalu mengirim hasil ke Node 2 melalui ESP-NOW. Node 2 menjadi koordinator,
+menyimpan data sementara di NVS, lalu mengirim satu siklus lengkap ke Supabase
+melalui HTTPS REST API. Dashboard Next.js hanya membaca data dari Supabase.
 
 ```text
-ESP32 + sensor
-    | HTTPS POST /rest/v1/sensor_readings
+Node 1/3 + sensor
+  | ESP-NOW
+  v
+Node 2 (koordinator + sensor)
+  | HTTPS POST /rest/v1/sensor_readings
     v
 Supabase PostgreSQL (sensor_readings)
     ^
@@ -30,22 +34,24 @@ WHERE id = 'A';
 4. Ambil `Project URL` dan `anon public key` dari **Project Settings > API**.
 
 Schema mendaftarkan dan mengaktifkan Node A, B, dan C. Jika schema lama sudah
-pernah dijalankan, jalankan ulang file tersebut agar view dashboard dibuat dan
-status Node B/C diperbarui menjadi aktif.
+pernah dijalankan, jalankan ulang file tersebut agar kolom `cycle_id`, view
+status siklus, indeks deduplikasi, dan policy payload final tersedia.
 
 Gunakan konfigurasi berikut pada tiga ESP32 yang berbeda:
 
-| Perangkat | `NODE_ID` | Node database | Topic opsional |
+| Perangkat | `NODE_ID` | Peran | Koneksi |
 |---|---|---|---|
-| ESP32 pertama | `A` | Node A | `peatland/nodeA/data` |
-| ESP32 kedua | `B` | Node B | `peatland/nodeB/data` |
-| ESP32 ketiga | `C` | Node C | `peatland/nodeC/data` |
+| Node 1 | `A` | Sensor ESP-NOW | Ke Node 2 |
+| Node 2 | `B` | Koordinator + sensor + uploader | Wi-Fi dan ESP-NOW |
+| Node 3 | `C` | Sensor ESP-NOW | Ke Node 2 |
 
-Firmware direct-to-Supabase hanya perlu mengubah `NODE_ID` pada masing-masing
-perangkat. Jangan memakai `SUPABASE_SERVICE_KEY` pada salah satu ESP32.
+Hanya firmware Node 2 yang menggunakan URL Supabase dan `SUPABASE_ANON_KEY`.
+Node 1 dan Node 3 tidak mengirim langsung ke Supabase. Jangan memakai
+`SUPABASE_SERVICE_KEY` pada salah satu ESP32.
 
 Schema membuat RLS policy yang mengizinkan role `anon` melakukan `INSERT` ke
-`sensor_readings` dengan validasi kedalaman dan kelembaban. Jangan pernah
+`sensor_readings` dengan validasi `cycle_id`, node/kedalaman, dan kelembaban.
+Jangan pernah
 memasukkan `SUPABASE_SERVICE_KEY` ke firmware ESP32.
 
 ## 2. Konfigurasi dashboard
@@ -70,7 +76,7 @@ npm run dev
 
 ## 3. Format data yang dikirim ESP32
 
-ESP32 mengirim satu atau beberapa baris JSON ke endpoint berikut:
+Node 2 mengirim tepat 9 baris JSON untuk satu siklus ke endpoint berikut:
 
 ```text
 POST https://your-project.supabase.co/rest/v1/sensor_readings
@@ -81,6 +87,7 @@ Contoh body satu pembacaan:
 ```json
 {
   "node_id": "A",
+  "cycle_id": 29563200,
   "depth_cm": 50,
   "moisture": 62.3,
   "raw_value": 740,
@@ -94,84 +101,36 @@ Header yang wajib dikirim:
 apikey: <SUPABASE_ANON_KEY>
 Authorization: Bearer <SUPABASE_ANON_KEY>
 Content-Type: application/json
-Prefer: return=minimal
+Prefer: resolution=ignore-duplicates,return=minimal
 ```
 
 Nilai `depth_cm` hanya `50`, `100`, atau `150`. Nilai `moisture` harus berada
-di antara `0` dan `100`. `received_at` diisi otomatis oleh database.
+di antara `0` dan `100`. `cycle_id` adalah menit Unix UTC yang sama untuk 9
+baris dalam satu siklus. `received_at` diisi otomatis oleh database.
 
-## 4. Contoh kode ESP32
+Payload harus berisi kombinasi unik berikut:
 
-Contoh berikut memakai `WiFi.h`, `HTTPClient.h`, dan `ArduinoJson.h`. Kirim
-tiga kedalaman sebagai array agar satu siklus sensor menjadi satu request.
-
-```cpp
-#include <WiFi.h>
-#include <HTTPClient.h>
-#include <ArduinoJson.h>
-
-const char* WIFI_SSID = "your_wifi_ssid";
-const char* WIFI_PASS = "your_wifi_password";
-const char* SUPABASE_URL = "https://your-project.supabase.co";
-const char* SUPABASE_ANON_KEY = "your-anon-public-key";
-// Gunakan "A", "B", atau "C"; setiap ESP32 harus memiliki NODE_ID unik.
-const char* NODE_ID = "A";
-
-const int SENSOR_50 = 34;
-const int SENSOR_100 = 35;
-const int SENSOR_150 = 32;
-
-float readMoisture(int pin) {
-  int raw = analogRead(pin);
-  return constrain((4095.0f - raw) * 100.0f / 4095.0f, 0.0f, 100.0f);
-}
-
-void sendReadings() {
-  HTTPClient http;
-  String endpoint = String(SUPABASE_URL) + "/rest/v1/sensor_readings";
-  http.begin(endpoint);
-  http.addHeader("apikey", SUPABASE_ANON_KEY);
-  http.addHeader("Authorization", String("Bearer ") + SUPABASE_ANON_KEY);
-  http.addHeader("Content-Type", "application/json");
-  http.addHeader("Prefer", "return=minimal");
-
-  DynamicJsonDocument body(768);
-  JsonArray readings = body.to<JsonArray>();
-  int pins[] = {SENSOR_50, SENSOR_100, SENSOR_150};
-  int depths[] = {50, 100, 150};
-
-  for (int i = 0; i < 3; i++) {
-    int raw = analogRead(pins[i]);
-    JsonObject reading = readings.createNestedObject();
-    reading["node_id"] = NODE_ID;
-    reading["depth_cm"] = depths[i];
-    reading["moisture"] = readMoisture(pins[i]);
-    reading["raw_value"] = raw;
-    reading["measured_at"] = "2026-09-18T07:32:00Z"; // replace with NTP time
-  }
-
-  String payload;
-  serializeJson(body, payload);
-  int status = http.POST(payload);
-  Serial.printf("Supabase response: %d\n", status);
-  http.end();
-}
-
-void setup() {
-  Serial.begin(115200);
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
-  while (WiFi.status() != WL_CONNECTED) delay(500);
-}
-
-void loop() {
-  if (WiFi.status() == WL_CONNECTED) sendReadings();
-  delay(60000);
-}
+```text
+A/50, A/100, A/150,
+B/50, B/100, B/150,
+C/50, C/100, C/150
 ```
 
-Pada implementasi nyata, sinkronkan waktu ESP32 dengan NTP sebelum mengisi
-`measured_at`. Jika waktu tidak tersedia, gunakan waktu server dengan mengubah
-kolom database agar memiliki default `NOW()` atau kirim timestamp yang valid.
+Jalankan [`database-schema-supabase.sql`](./database-schema-supabase.sql) di
+Supabase SQL Editor. View `v_measurement_cycle_status` menunjukkan apakah
+satu `cycle_id` sudah lengkap dengan 9 baris.
+
+## 4. Firmware alat
+
+Firmware Node 1/3 dan koordinator Node 2 tersedia di
+[`ESP-NOW-COORDINATOR-DRAFT.md`](./ESP-NOW-COORDINATOR-DRAFT.md). Hanya Node 2
+yang menggunakan Wi-Fi ke router, NTP, dan endpoint Supabase. Node 1 dan Node 3
+hanya mengirim paket ESP-NOW ke Node 2 setelah menerima request.
+
+Koordinator mengirim satu payload berisi 9 baris per siklus. Setiap baris wajib
+memiliki `node_id`, `cycle_id`, `depth_cm`, `moisture`, `raw_value`, dan
+`measured_at`. Jika upload gagal, koordinator mengulang payload yang sama;
+unique index pada schema membuat retry tidak menggandakan data.
 
 ## 5. Cara dashboard membaca data
 
@@ -206,6 +165,18 @@ ORDER BY measured_at DESC
 LIMIT 10;
 ```
 
+Periksa kelengkapan satu siklus:
+
+```sql
+SELECT cycle_id, measured_at, reading_count, node_count,
+       depth_count, node_depth_count, status
+FROM public.v_measurement_cycle_status
+WHERE cycle_id = 29563200;
+```
+
+Siklus lengkap harus menghasilkan `reading_count = 9`, `node_count = 3`,
+`depth_count = 3`, `node_depth_count = 9`, dan `status = 'complete'`.
+
 4. Jalankan dashboard dan pilih Node A, Node B, atau Node C.
 5. Tunggu maksimal 30 detik atau gunakan tombol Retry.
 
@@ -217,10 +188,11 @@ LIMIT 10;
 | ESP32 mendapat `400` | Periksa nama kolom, format timestamp ISO 8601, depth, dan rentang moisture. |
 | Data ada di Supabase tetapi dashboard kosong | Periksa `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, dan endpoint `/api/readings/live`. |
 | Status dashboard “No recent data” | Pastikan `measured_at` memakai waktu UTC yang benar dan pembacaan terbaru kurang dari lima menit. |
-| Data dobel | Kirim satu batch per siklus dan pertimbangkan menambahkan `device_message_id` unik jika diperlukan. |
+| Data dobel | Pastikan `cycle_id`, `node_id`, dan `depth_cm` benar; unique index `uq_readings_node_cycle_depth` mencegah retry menjadi baris ganda. |
 
 ## 8. Catatan migrasi MQTT
 
 File bridge MQTT lama tetap ada sebagai artefak migrasi dan tidak dijalankan
-oleh dashboard. Untuk arsitektur direct-to-Supabase, ESP32 tidak perlu broker,
-topic, `PubSubClient`, atau `scripts/mqtt-bridge-supabase.ts`.
+oleh dashboard. Arsitektur final memakai ESP-NOW antara node dan Node 2, lalu
+HTTPS REST dari Node 2 ke Supabase. MQTT, topic, `PubSubClient`, dan
+`scripts/mqtt-bridge-supabase.ts` tidak diperlukan untuk alur ini.

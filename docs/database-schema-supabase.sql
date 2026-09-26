@@ -26,12 +26,17 @@ CREATE TABLE IF NOT EXISTS public.sensor_readings (
   depth_cm    INTEGER      NOT NULL,
   moisture    DOUBLE PRECISION NOT NULL,
   raw_value   INTEGER,
+  cycle_id    BIGINT,
   received_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
   measured_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
 
   CONSTRAINT valid_depth CHECK (depth_cm IN (50, 100, 150)),
-  CONSTRAINT valid_moisture CHECK (moisture >= 0 AND moisture <= 100)
+  CONSTRAINT valid_moisture CHECK (moisture >= 0 AND moisture <= 100),
+  CONSTRAINT valid_cycle CHECK (cycle_id IS NULL OR cycle_id > 0)
 );
+
+ALTER TABLE public.sensor_readings
+  ADD COLUMN IF NOT EXISTS cycle_id BIGINT;
 
 ALTER TABLE public.sensor_readings
   ALTER COLUMN measured_at SET DEFAULT NOW();
@@ -42,6 +47,38 @@ CREATE INDEX IF NOT EXISTS idx_readings_node_depth_time
   ON public.sensor_readings (node_id, depth_cm, measured_at DESC);
 CREATE INDEX IF NOT EXISTS idx_readings_measured_at
   ON public.sensor_readings (measured_at DESC);
+CREATE INDEX IF NOT EXISTS idx_readings_cycle_id
+  ON public.sensor_readings (cycle_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_readings_node_cycle_depth
+  ON public.sensor_readings (node_id, cycle_id, depth_cm)
+  WHERE cycle_id IS NOT NULL;
+
+-- One row per cycle should exist for each node/depth combination.
+CREATE OR REPLACE VIEW public.v_measurement_cycle_status
+WITH (security_invoker = true)
+AS
+SELECT
+  cycle_id,
+  MIN(measured_at) AS measured_at,
+  MIN(received_at) AS first_received_at,
+  MAX(received_at) AS last_received_at,
+  COUNT(*)::INTEGER AS reading_count,
+  COUNT(DISTINCT node_id)::INTEGER AS node_count,
+  COUNT(DISTINCT depth_cm)::INTEGER AS depth_count,
+  COUNT(DISTINCT (node_id, depth_cm))::INTEGER AS node_depth_count,
+  CASE
+    WHEN COUNT(*) = 9
+      AND COUNT(DISTINCT node_id) = 3
+      AND COUNT(DISTINCT depth_cm) = 3
+      AND COUNT(DISTINCT (node_id, depth_cm)) = 9
+    THEN 'complete'
+    ELSE 'incomplete'
+  END AS status
+FROM public.sensor_readings
+WHERE cycle_id IS NOT NULL
+GROUP BY cycle_id;
+
+GRANT SELECT ON public.v_measurement_cycle_status TO anon, authenticated;
 
 -- Dashboard source. Replace moisture with calibrated expressions when
 -- per-sensor calibration coefficients are available.
@@ -54,6 +91,7 @@ SELECT
   depth_cm,
   moisture,
   raw_value,
+  cycle_id,
   measured_at,
   received_at
 FROM public.sensor_readings;
@@ -68,7 +106,9 @@ CREATE POLICY "ESP32 can insert sensor readings"
   ON public.sensor_readings FOR INSERT
   TO anon, authenticated
   WITH CHECK (
-    depth_cm IN (50, 100, 150)
+    cycle_id IS NOT NULL
+    AND cycle_id > 0
+    AND depth_cm IN (50, 100, 150)
     AND moisture >= 0
     AND moisture <= 100
   );

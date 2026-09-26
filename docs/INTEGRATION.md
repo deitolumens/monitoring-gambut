@@ -11,6 +11,10 @@ melakukan polling API Next.js setiap 30 detik. Data mentah disimpan di
 `sensor_readings`, sedangkan API membaca hasil koreksi dari view
 `v_sensor_terkalibrasi`.
 
+Draft arsitektur alternatif untuk tiga node dengan satu koordinator ESP-NOW,
+buffer lima siklus, dan batch upload Supabase tersedia di
+[`ESP-NOW-COORDINATOR-DRAFT.md`](./ESP-NOW-COORDINATOR-DRAFT.md).
+
 Dokumentasi setup lengkap, contoh payload, RLS policy, contoh firmware ESP32,
 dan troubleshooting tersedia di [`MQTT-SUPABASE-SETUP.md`](./MQTT-SUPABASE-SETUP.md).
 
@@ -22,6 +26,7 @@ dan troubleshooting tersedia di [`MQTT-SUPABASE-SETUP.md`](./MQTT-SUPABASE-SETUP
 - [`app/api/readings/history/route.ts`](../app/api/readings/history/route.ts) mengambil histori dengan pagination.
 - [`hooks/use-soil-data.ts`](../hooks/use-soil-data.ts) menggabungkan endpoint dan melakukan polling 30 detik.
 - [`docs/database-schema-supabase.sql`](./database-schema-supabase.sql) membuat tabel, constraint, index, dan RLS policy.
+- View `v_measurement_cycle_status` memvalidasi bahwa satu `cycle_id` memiliki 9 pembacaan: tiga node dan tiga kedalaman.
 
 ## Keamanan kunci
 
